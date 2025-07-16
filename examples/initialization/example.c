@@ -33,22 +33,41 @@
 
 int main(void)
 {
-    const module_init_info_t *error = NULL;
-    initialization_result_t   res;
+    module_init_handle_t handle;
 
-    res = module_initialization(&error);
+    printf("*** Initializing modules.\n");
+    module_initialization(&handle);
 
-    switch (res) {
+    switch (handle.init_state) {
     case IR_SUCCESS:
         break;
 
-    case IR_CYCLE:
-        printf("Cycle involving module '%s'\n", error->module_name);
-        break;
+    case IR_CYCLE: {
+        unsigned i = 0;
 
-    case IR_FAILED:
-        printf("Module '%s' failed to initialized\n", error->module_name);
+        /* Cycles are detected before any module is initialized. */
+        printf("Error, cycle detected involving:\n");
+        do {
+            printf("  %s\n", handle.table[i]->module_name);
+            i++;
+        } while (i < handle.table_index);
+        printf("\n");
         break;
     }
+
+    case IR_FAILED:
+        printf("Module '%s' failed to initialized\n",
+               handle.table[handle.table_index]->module_name);
+        break;
+    }
+
+    switch (handle.init_state) {
+    case IR_SUCCESS: /* Program initialized successfully. */
+    case IR_FAILED:  /* Some modules initialized. */
+        printf("\n\n*** Finalizing modules.\n");
+        module_finalization(&handle);
+        break;
+    }
+
     return 0;
 }

@@ -37,8 +37,8 @@
 #define MODULE_INIT_H_
 
 #include <assert.h>
+#include <malloc.h>
 #include "linkerset.h"
-
 
 /* init_state_t
  *
@@ -78,11 +78,14 @@ typedef enum init_state_t {
  *  IR_FAILED: An module's initialziation function has returned a
  *             non-zero value to indicate it could not properly
  *             initialize.
+ *
+ *  IR_MEMORY: ADD COMMENT
  */
 typedef enum initialization_result_t {
     IR_SUCCESS,
     IR_CYCLE,
-    IR_FAILED
+    IR_FAILED,
+    IR_MEMORY
 } initialization_result_t;
 
 
@@ -92,6 +95,14 @@ typedef enum initialization_result_t {
  *  function.
  */
 typedef int (*module_init_fn_t)(void);
+
+
+/* module_fina_fn_t:
+ *
+ *  This functions as the signature of the module finalization
+ *  function.
+ */
+typedef int (*module_fina_fn_t)(void);
 
 
 /* module_import_info_t
@@ -118,6 +129,7 @@ typedef struct module_init_info_t {
     const char           *module_name;
     module_import_info_t  imports;
     module_init_fn_t      init_fn;
+    module_fina_fn_t      fina_fn;
     init_state_t          init_state;
 } module_init_info_t;
 
@@ -177,13 +189,14 @@ LINKERSET_DECLARE(module_init_info);
  *    Using NULL as the value of init_fn_ results in declaring a
  *    module with no initialization function.
  */
-#define DECLARE_MODULE(mname_, init_fn_)                                \
+#define DECLARE_MODULE(mname_, init_fn_, fina_fn_)                      \
     typedef module_import_t XCONCAT_(MODULE_IMPORT(mname_),_t);         \
     LINKERSET_DECLARE(MODULE_IMPORT(mname_));                           \
     extern int XCONCAT_(mname_,_init_fn)(void);                         \
     module_init_info_t MODULE_INIT(mname_) = {                          \
         .module_name = XSTRING_(mname_),                                \
         .init_fn       = init_fn_,                                      \
+        .fina_fn       = fina_fn_,                                      \
         .imports.start = LINKERSET_START(MODULE_IMPORT(mname_)),        \
         .imports.stop  = LINKERSET_STOP(MODULE_IMPORT(mname_)),         \
         .init_state    = IS_UNINITIALIZED                               \
@@ -201,49 +214,102 @@ LINKERSET_DECLARE(module_init_info);
     LINKERSET_ADD_ITEM(MODULE_IMPORT(importer_), MODULE_INIT(importee_));
 
 
-/* initialize_module
+/* init_handle_t
+ *
+ */
+typedef struct module_init_handle_t {
+    /* init_state:
+     *
+     *   The state of initialization at the end of the function
+     *   receiving this type asd an argument.
+     *
+     * table_index:
+     *
+     *   This field is used to index the 'table' field.  When the
+     *   entire table has been successfully processed, its value can
+     *   be one larger than the last valid index into the table.
+     *
+     *   inv: 0 <= table_index <= table_size
+     *
+     * table_size:
+     *
+     *   This is the number of elements allocated for 'table'.
+     *
+     * table:
+     *
+     *   This field is used to topologically sort the set of modules
+     *   into an order suitable for sequential initialization.  If the
+     *   set of modules cannot be put into an order for sequential
+     *   initialization, no modules will be initialized, and
+     *   'init_state' will not be set to IR_SUCCESS.
+     *
+     *   inv:
+     *     (Ai: 0 <= i < table_index: table[i] is valid 'module_init_info_t *') &&
+     *     (Ai: table_index <= i < table_size: table[i] is undefined)
+     */
+    initialization_result_t    init_state;
+    unsigned                   table_index;
+    unsigned                   table_size;
+    module_init_info_t       **table;
+} module_init_handle_t;
+
+
+static inline void
+initialize_handle(module_init_handle_t *ih, unsigned table_size)
+{
+    ih->init_state  = IR_SUCCESS;
+    ih->table_index = 0;
+    ih->table_size  = table_size;
+    ih->table       = 0;
+    ih->table_index = 0;
+    if (table_size != 0) {
+        ih->table = calloc(ih->table_size, sizeof(module_init_info_t *));
+    }
+}
+
+
+/* topological_sort_modules
  *
  *   This function performs the administrative work around invoking
  *   the initialization function of all imported modules, and the
  *   current module.
  */
-static inline initialization_result_t
-initialize_module(module_init_info_t        *mip,
-                  const module_init_info_t **module_err)
+static inline void
+topological_sort_modules(module_init_handle_t *ih,
+                         module_init_info_t   *mip)
 {
     if (mip->init_state == IS_INITIALIZING) {
-        *module_err = mip;
-        return IR_CYCLE;
+        /* Cycle detected. Store offending module in cycle table. */
+        ih->init_state  = IR_CYCLE;
+        ih->table[0]    = mip;
+        ih->table_index = 1;
     } else if (mip->init_state == IS_UNINITIALIZED) {
+        /* Follow imported modules, depth first. */
+
         initialization_result_t  res;
-        int                      init_result;
         void                    *p = mip->imports.start;
 
-        mip->init_state = IS_INITIALIZING;
-
-        /* Initialize imported modules first. */
+        mip->init_state = IS_INITIALIZING; /* For cycle detection. */
         while (p < mip->imports.stop) {
             module_init_info_t *impp = *(module_init_info_t **)p;
-            res = initialize_module(impp, module_err);
-            if (res != IR_SUCCESS) {
-                return res;
+            topological_sort_modules(ih, impp);
+            if (ih->init_state == IR_CYCLE) {
+                ih->table[ih->table_index] = mip;
+                ih->table_index++;
+                return;
+            } else if (ih->init_state != IR_SUCCESS) {
+                return;
             }
             p += sizeof(void *);
         }
 
-        mip->init_state = IS_INITIALIZING;
-        if (mip->init_fn != NULL) {
-            init_result = mip->init_fn();
-            if (init_result != 0) {
-                *module_err = mip;
-                return IR_FAILED;
-            }
-        }
+        /* mip is a module that is clear to be initialized. */
+        ih->table[ih->table_index] = mip;
+        ++ih->table_index;
         mip->init_state = IS_INITIALIZED;
     } else {
         assert(mip->init_state == IS_INITIALIZED);
     }
-    return IR_SUCCESS;
 }
 
 
@@ -256,22 +322,87 @@ initialize_module(module_init_info_t        *mip,
  *   error encountered, and 'module_err' will refer to the module at
  *   which the error occured.
  *
+ * XXX fix this comment.  Describe errors.
  *   If the result is IR_SUCCESS, the contents of 'module_err' are
  *   undefined.
  */
-static inline initialization_result_t
-module_initialization(const module_init_info_t **module_err)
+static inline void
+module_initialization(module_init_handle_t *ih)
 {
-    initialization_result_t res;
+    initialize_handle(ih, LINKERSET_SIZE(module_init_info, unsigned));
+
+    if (ih->table == NULL) {
+        ih->init_state = IR_MEMORY;
+        return;
+    }
 
     LINKERSET_ITERATE(module_init_info, mi, {
-            const module_init_info_t *mip = mi;
-
-            res = initialize_module(mi, module_err);
-            if (res != IR_SUCCESS) {
-                return res;
+            topological_sort_modules(ih, mi);
+            if (ih->init_state != IR_SUCCESS) {
+                return;
             }
         });
-    return IR_SUCCESS;
+    assert(ih->table_index == ih->table_size);
+
+    /* ih->table now contains a set of modules that is in an order
+     * suitable for sequential initialization.
+     *
+     * The original linkerset is unchanged.
+     */
+    ih->table_index = 0;
+    while (ih->table_index < ih->table_size) {
+        if (ih->table[ih->table_index]->init_fn != NULL) {
+            int init_result;
+
+            ih->table[ih->table_index]->init_state = IS_INITIALIZING;
+            init_result= ih->table[ih->table_index]->init_fn();
+            if (init_result != 0) {
+                ih->init_state = IR_FAILED;
+                return;
+            }
+            ih->table[ih->table_index]->init_state = IS_INITIALIZED;
+        }
+        ++ih->table_index;
+    }
+
+    assert(ih->table_index == ih->table_size);
+}
+
+
+static inline void
+module_finalization(module_init_handle_t *ih)
+{
+    if (ih->table != NULL) {
+        /* ih->table != NULL -> finalization not done. */
+
+        do {
+            --ih->table_index;
+
+            if (ih->table[ih->table_index]->fina_fn != NULL) {
+                int init_result;
+
+                init_result= ih->table[ih->table_index]->fina_fn();
+                if (init_result != 0) {
+                    /* Finalizing a module failed.  Stop finalizing
+                     * lower-level modules because the one that failed
+                     * may still be relying on functionality from a
+                     * lower-level module.
+                     *
+                     * At this point, the whole program is in a bad
+                     * state.  'ih' is not cleaned up and
+                     * re-initialized, as happens in a successful
+                     * finalization of the whole program.
+                     */
+                    ih->init_state = IR_FAILED;
+                    return;
+                }
+            }
+        } while (ih->table_index != 0);
+        free(ih->table);
+        ih->table = NULL;
+
+        /* Re-initialize the handle. */
+        initialize_handle(ih, 0);
+    }
 }
 #endif

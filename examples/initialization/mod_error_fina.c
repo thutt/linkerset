@@ -27,14 +27,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <assert.h>
 #include <stdio.h>
-
 #include "module_init.h"
 
 
 static int
-module_b_init(void)
+module_error_init(void)
 {
     printf("%s\n", __FUNCTION__);
     return 0;
@@ -42,11 +40,13 @@ module_b_init(void)
 
 
 static int
-module_b_fina(void)
+module_error_fina(void)
 {
     printf("%s\n", __FUNCTION__);
-    return 0;
+    return 1;
 }
 
 
-DECLARE_MODULE(mod_b, module_b_init, module_b_fina);
+DECLARE_MODULE(mod_error_fina, module_error_init, module_error_fina);
+IMPORT(mod_error_fina, mod_b)
+IMPORT(mod_error_fina, mod_a)

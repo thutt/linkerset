@@ -39,5 +39,13 @@ module_a_init(void)
 }
 
 
-DECLARE_MODULE(mod_a, module_a_init);
+static int
+module_a_fina(void)
+{
+    printf("%s\n", __FUNCTION__);
+    return 0;
+}
+
+
+DECLARE_MODULE(mod_a, module_a_init, module_a_fina);
 IMPORT(mod_a, mod_b)

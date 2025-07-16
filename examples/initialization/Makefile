@@ -35,6 +35,22 @@ mod_a.o:	mod_a.c
 mod_b.o:	mod_b.c
 mod_c.o:	mod_c.c
 
+
+cycle_example:	\
+	example.o mod_b.o mod_c.o mod_a.o  \
+	mod_cycle_0.o mod_cycle_1.o mod_cycle_2.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+init_error_example:	\
+	example.o mod_b.o mod_c.o mod_a.o  \
+	mod_error_init.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+fina_error_example:	\
+	example.o mod_b.o mod_c.o mod_a.o  \
+	mod_error_fina.o
+	$(CC) $(CFLAGS) -o $@ $^
+
 clean:
 	rm -rf example *.o *.d;
 
