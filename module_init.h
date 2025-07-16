@@ -255,7 +255,7 @@ typedef struct module_init_handle_t {
 
 
 static inline void
-initialize_handle(module_init_handle_t *ih, unsigned table_size)
+module_handle_initialize(module_init_handle_t *ih, unsigned table_size)
 {
     ih->init_state  = IR_SUCCESS;
     ih->table_index = 0;
@@ -265,6 +265,23 @@ initialize_handle(module_init_handle_t *ih, unsigned table_size)
     if (table_size != 0) {
         ih->table = calloc(ih->table_size, sizeof(module_init_info_t *));
     }
+}
+
+
+/* module_handle_finalize
+ *
+ *  Frees dynamically allocated resources, and resets the state of the
+ *  handler so that subsequent usage will not cause a invalid memory
+ *  reference.
+ *
+ *  This must be called by a client of this library when use of the
+ *  module initialization / finalization system is done.
+ */
+static inline void
+module_handle_finalize(module_init_handle_t *ih)
+{
+    free(ih->table);
+    module_handle_initialize(ih, 0);
 }
 
 
@@ -329,7 +346,7 @@ topological_sort_modules(module_init_handle_t *ih,
 static inline void
 module_initialization(module_init_handle_t *ih)
 {
-    initialize_handle(ih, LINKERSET_SIZE(module_init_info, unsigned));
+    module_handle_initialize(ih, LINKERSET_SIZE(module_init_info, unsigned));
 
     if (ih->table == NULL) {
         ih->init_state = IR_MEMORY;
@@ -398,11 +415,9 @@ module_finalization(module_init_handle_t *ih)
                 }
             }
         } while (ih->table_index != 0);
-        free(ih->table);
-        ih->table = NULL;
 
-        /* Re-initialize the handle. */
-        initialize_handle(ih, 0);
     }
 }
+
+
 #endif

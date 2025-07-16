@@ -69,5 +69,6 @@ int main(void)
         break;
     }
 
+    module_handle_finalize(&handle);
     return 0;
 }
