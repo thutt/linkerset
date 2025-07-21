@@ -266,22 +266,27 @@ typedef struct SYMINTF_SET_TYPE_NAME {
              XCONCAT_(_,__LINE__))
 
 
+
 #define ENUM_VAR_NAME(tname_, ename_)                   \
     XCONCAT_(XCONCAT_(enum_,                            \
                       XCONCAT_(XCONCAT_(tname_, _),     \
                                XCONCAT_(ename_, __))),  \
              XCONCAT_(_,__LINE__))
 
+
 #define CPP_INT_VAR_NAME(sname_)                \
     XCONCAT_(XCONCAT_(cpp_int_,                 \
                       XCONCAT_(sname_, __)),    \
              XCONCAT_(_,__LINE__))
 
+
 /* SYMINTF_STRUCT_FIELD_ADD
  *
+ *  This adds the size & offset of a structure field to the linkerset.
  *
- *
- *
+ *  tname_ must be a typeef symbol associated with a C structure.
+ *  fname_ must be the name of a field in the type referenced by
+ *  tname_.
  */
 #define SYMINTF_STRUCT_FIELD_ADD(tname_, fname_)                        \
     static symintf_desc_t STRUCT_FIELD_VAR_NAME(tname_, fname_) = {     \
