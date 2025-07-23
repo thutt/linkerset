@@ -28,12 +28,25 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 CFLAGS	= -I../.. -MMD
 
-example:	example.o mod_b.o mod_c.o mod_a.o 
+EXECUTABLES	:=				\
+	example cycle_example			\
+	init_error_example			\
+	fina_error_example			\
+	print_order_example
+
+
+all:	$(EXECUTABLES)
+
+
+example:	example.o mod_b.o mod_c.o mod_a.o
 
 example.o:	example.c
 mod_a.o:	mod_a.c
 mod_b.o:	mod_b.c
 mod_c.o:	mod_c.c
+
+print_order_example:	print_order.o mod_b.o mod_c.o mod_a.o
+	$(CC) $(CFLAGS) -o $@ $^
 
 
 cycle_example:	\
@@ -52,6 +65,6 @@ fina_error_example:	\
 	$(CC) $(CFLAGS) -o $@ $^
 
 clean:
-	rm -rf example *.o *.d;
+	rm -rf $(EXECUTABLES) *.o *.d;
 
 -include *.d

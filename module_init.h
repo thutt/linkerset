@@ -129,7 +129,9 @@ typedef struct module_init_info_t {
     const char           *module_name;
     module_import_info_t  imports;
     module_init_fn_t      init_fn;
+    const char           *init_fn_name;
     module_fina_fn_t      fina_fn;
+    const char           *fina_fn_name;
     init_state_t          init_state;
 } module_init_info_t;
 
@@ -196,7 +198,9 @@ LINKERSET_DECLARE(module_init_info);
     module_init_info_t MODULE_INIT(mname_) = {                          \
         .module_name = XSTRING_(mname_),                                \
         .init_fn       = init_fn_,                                      \
+        .init_fn_name  = XSTRING_(init_fn_),                            \
         .fina_fn       = fina_fn_,                                      \
+        .fina_fn_name  = XSTRING_(fina_fn_),                            \
         .imports.start = LINKERSET_START(MODULE_IMPORT(mname_)),        \
         .imports.stop  = LINKERSET_STOP(MODULE_IMPORT(mname_)),         \
         .init_state    = IS_UNINITIALIZED                               \
@@ -258,7 +262,6 @@ static inline void
 module_handle_initialize(module_init_handle_t *ih, unsigned table_size)
 {
     ih->init_state  = IR_SUCCESS;
-    ih->table_index = 0;
     ih->table_size  = table_size;
     ih->table       = 0;
     ih->table_index = 0;
@@ -292,8 +295,8 @@ module_handle_finalize(module_init_handle_t *ih)
  *   current module.
  */
 static inline void
-topological_sort_modules(module_init_handle_t *ih,
-                         module_init_info_t   *mip)
+topological_sort_module(module_init_handle_t *ih,
+                        module_init_info_t   *mip)
 {
     if (mip->init_state == IS_INITIALIZING) {
         /* Cycle detected. Store offending module in cycle table. */
@@ -309,7 +312,7 @@ topological_sort_modules(module_init_handle_t *ih,
         mip->init_state = IS_INITIALIZING; /* For cycle detection. */
         while (p < mip->imports.stop) {
             module_init_info_t *impp = *(module_init_info_t **)p;
-            topological_sort_modules(ih, impp);
+            topological_sort_module(ih, impp);
             if (ih->init_state == IR_CYCLE) {
                 ih->table[ih->table_index] = mip;
                 ih->table_index++;
@@ -327,6 +330,19 @@ topological_sort_modules(module_init_handle_t *ih,
     } else {
         assert(mip->init_state == IS_INITIALIZED);
     }
+}
+
+
+static inline void
+topological_sort_modules(module_init_handle_t *ih)
+{
+    LINKERSET_ITERATE(module_init_info, mi, {
+            topological_sort_module(ih, mi);
+            if (ih->init_state != IR_SUCCESS) {
+                return;
+            }
+        });
+    assert(ih->table_index == ih->table_size);
 }
 
 
@@ -353,13 +369,7 @@ module_initialization(module_init_handle_t *ih)
         return;
     }
 
-    LINKERSET_ITERATE(module_init_info, mi, {
-            topological_sort_modules(ih, mi);
-            if (ih->init_state != IR_SUCCESS) {
-                return;
-            }
-        });
-    assert(ih->table_index == ih->table_size);
+    topological_sort_modules(ih);
 
     /* ih->table now contains a set of modules that is in an order
      * suitable for sequential initialization.
