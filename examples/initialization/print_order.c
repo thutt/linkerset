@@ -77,6 +77,19 @@ int main(void)
                        max_mname, ih->table[ih->table_index]->module_name,
                        max_iname, ih->table[ih->table_index]->init_fn_name,
                        max_fname, ih->table[ih->table_index]->fina_fn_name);
+
+                {
+                    /* Print imported modules. */
+                    void *p = ih->table[ih->table_index]->imports.start;
+
+                    while (p < ih->table[ih->table_index]->imports.stop) {
+                        module_init_info_t *imp = *(module_init_info_t **)p;
+                        printf("%-*s  import: %-s\n",
+                               max_mname, " ", imp->module_name);
+                        p += sizeof(void *);
+                    }
+                }
+
                 ++ih->table_index;
             }
 
