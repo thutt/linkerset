@@ -44,8 +44,59 @@ example.o:	example.c
 mod_a.o:	mod_a.c
 mod_b.o:	mod_b.c
 mod_c.o:	mod_c.c
+mod_d.o:	mod_d.c
+mod_e.o:	mod_e.c
+mod_f.o:	mod_f.c
+mod_g.o:	mod_g.c
+mod_h.o:	mod_h.c
+mod_i.o:	mod_i.c
+mod_j.o:	mod_j.c
+mod_k.o:	mod_k.c
+mod_l.o:	mod_l.c
+mod_m.o:	mod_m.c
+mod_n.o:	mod_n.c
+mod_o.o:	mod_o.c
+mod_p.o:	mod_p.c
+mod_q.o:	mod_q.c
+mod_r.o:	mod_r.c
+mod_s.o:	mod_s.c
+mod_t.o:	mod_t.c
+mod_u.o:	mod_u.c
+mod_v.o:	mod_v.c
+mod_w.o:	mod_w.c
+mod_x.o:	mod_x.c
+mod_y.o:	mod_y.c
+mod_z.o:	mod_z.c
 
-print_order_example:	print_order.o mod_b.o mod_c.o mod_a.o
+print_order_example:				\
+	print_order.o				\
+	mod_a.o					\
+	mod_b.o					\
+	mod_c.o					\
+	mod_d.o					\
+	mod_e.o					\
+	mod_f.o					\
+	mod_g.o					\
+	mod_h.o					\
+	mod_i.o					\
+	mod_j.o					\
+	mod_k.o					\
+	mod_l.o					\
+	mod_m.o					\
+	mod_n.o					\
+	mod_o.o					\
+	mod_p.o					\
+	mod_q.o					\
+	mod_r.o					\
+	mod_s.o					\
+	mod_t.o					\
+	mod_u.o					\
+	mod_v.o					\
+	mod_w.o					\
+	mod_x.o					\
+	mod_y.o					\
+	mod_z.o
+
 	$(CC) $(CFLAGS) -o $@ $^
 
 

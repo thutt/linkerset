@@ -32,7 +32,7 @@
 
 
 static int
-module_c_init(void)
+module_init(void)
 {
     printf("%s\n", __FUNCTION__);
     return 0;
@@ -40,13 +40,13 @@ module_c_init(void)
 
 
 static int
-module_c_fina(void)
+module_fina(void)
 {
     printf("%s\n", __FUNCTION__);
     return 0;
 }
 
 
-DECLARE_MODULE(mod_c, module_c_init, module_c_fina);
+DECLARE_MODULE(mod_c, module_init, module_fina);
 IMPORT(mod_c, mod_b)
 IMPORT(mod_c, mod_a)

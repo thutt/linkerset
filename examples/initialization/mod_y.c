@@ -46,5 +46,9 @@ module_fina(void)
 }
 
 
-DECLARE_MODULE(mod_a, module_init, module_fina);
-IMPORT(mod_a, mod_b)
+DECLARE_MODULE(mod_y, module_init, module_fina);
+IMPORT(mod_y, mod_d)
+IMPORT(mod_y, mod_g)
+IMPORT(mod_y, mod_h)
+IMPORT(mod_y, mod_l)
+IMPORT(mod_y, mod_z)

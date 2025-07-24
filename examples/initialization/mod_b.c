@@ -34,7 +34,7 @@
 
 
 static int
-module_b_init(void)
+module_init(void)
 {
     printf("%s\n", __FUNCTION__);
     return 0;
@@ -42,11 +42,11 @@ module_b_init(void)
 
 
 static int
-module_b_fina(void)
+module_fina(void)
 {
     printf("%s\n", __FUNCTION__);
     return 0;
 }
 
 
-DECLARE_MODULE(mod_b, module_b_init, module_b_fina);
+DECLARE_MODULE(mod_b, module_init, module_fina);
